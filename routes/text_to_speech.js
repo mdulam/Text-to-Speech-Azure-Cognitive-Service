@@ -11,22 +11,93 @@ const request = require('request');
 const express = require("express");
 const router = express.Router();
 var bodyParser = require("body-parser");
-var jwt   = require('jsonwebtoken');
+var jwt = require('jsonwebtoken');
 
 var urlencodedParser = bodyParser.urlencoded({ extended: false });
 
-// const verifyToken = function(req,res,next){//verifying the token obtained from the user.
+const verifyToken = function (req, res, next) {//verifying the token obtained from the user.
 
-//     var headerVal = req.headers['authorization'];
-//     var token = headerVal.split(' ')[1];
-//     if(token === null) return res.sendStatus(404);
+    var token = req.headers['authorization'];
+    if (token === null) return res.sendStatus(404);
 
-//     jwt.verify(token,'myKey',function(err,req,res){
-//         if(err) return res.sendStatus(404);
-//         next();
-//     })
+    jwt.verify(token, 'myKey', function (err, req, res) {
+        if (err) return res.sendStatus(404);
+        next();
+    })
 
-// }
+}
+
+/**
+* @swagger
+* /api/v1/texttospeech/signIn:
+*   post:
+*     description: generates an token for the user
+*     parameters:
+ *       - name: username
+ *         in: formData
+ *         type: string
+ *         required: true  
+ *       - name: password
+ *         in: formData
+ *         type: string
+ *         required: true   
+*     responses:
+*       '200':
+*         description: OK
+*/
+router.post('/texttospeech/signIn', function (req, res) {
+
+    let username = req.body.username;
+    let password = req.body.password;
+    if (username === "meghana" && password === "meghana") {
+        var userData = {
+            user: username,
+        };
+
+        var token = jwt.sign(userData, 'myKey', { expiresIn: "0.2h" })
+        return res.json({ accessToken: token });
+    }
+});
+
+/**
+* @swagger
+* /api/v1/user/texttospeech:
+*   post:
+*     description: convert text input to speech file
+*     parameters:
+ *       - name: text
+ *         in: formData
+ *         type: string
+ *         required: true  
+ *       - name: Authorization
+ *         in: header
+ *         type: string
+ *         required: true    
+*     responses:
+*       '200':
+*         description: OK
+*/
+
+router.post('/user/texttospeech', urlencodedParser, verifyToken, async function (req, res) {
+    if (req.body) {
+        if (req.body.text) {
+            const text = req.body.text;
+            const subscriptionKey = process.env.MY_API_KEY_TTS;
+            try {
+                const accessToken = await getAccessToken(subscriptionKey);
+                var request = await textToSpeech(accessToken, text);
+                res.download('./TTSOutput.wav');
+
+            } catch (err) {
+                console.log(`Something went wrong: ${err}`);
+            }
+        }
+    }
+    else {
+        return;
+    }
+});
+
 
 /**
 * @swagger
@@ -43,27 +114,28 @@ var urlencodedParser = bodyParser.urlencoded({ extended: false });
 *         description: OK
 */
 
-router.post('/',urlencodedParser, async function(req, res){
+router.post('/texttospeech', urlencodedParser, async function (req, res) {
 
-    if(req.body){
-        if(req.body.text){
+    if (req.body) {
+        if (req.body.text) {
             const text = req.body.text;
             const subscriptionKey = process.env.MY_API_KEY_TTS;
             try {
                 const accessToken = await getAccessToken(subscriptionKey);
-               var request = await textToSpeech(accessToken, text);
-              res.download('./TTSOutput.wav');  
-                
+                var request = await textToSpeech(accessToken, text);
+                res.download('./TTSOutput.wav');
+
             } catch (err) {
                 console.log(`Something went wrong: ${err}`);
             }
         }
     }
-    else{
+    else {
 
     }
 
 });
+
 
 // Gets an access token.
 function getAccessToken(subscriptionKey) {
@@ -110,7 +182,7 @@ function textToSpeech(accessToken, text) {
     let request = rp(options)
         .on('response', (response) => {
             if (response.statusCode === 200) {
-               request.pipe(fs.createWriteStream('TTSOutput.wav'));
+                request.pipe(fs.createWriteStream('TTSOutput.wav'));
                 console.log('\nYour file is ready.\n')
             }
         });
@@ -119,4 +191,4 @@ function textToSpeech(accessToken, text) {
 
 
 
-module.exports= router;
+module.exports = router;

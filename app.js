@@ -40,7 +40,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/api/v1/texttospeech',textToSpeechApi);
+app.use('/api/v1/',textToSpeechApi);
 
 app.use((req, res, next) => {
     const error = new Error("Not found");
